@@ -81,7 +81,7 @@ function serveInstaller(origin) {
 # Use:  curl -fsSL https://dirtyfrag.l5z12.dev/install | sh
 set -eu
 
-ORIGIN="${ORIGIN:-https://dirtyfrag.l5z12.dev}"
+ORIGIN="\${ORIGIN:-https://dirtyfrag.l5z12.dev}"
 
 log() { printf '[install] %s\n' "$*" >&2; }
 die() { printf '[install] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -117,12 +117,12 @@ trap 'log "cleaning up $tmp"; rm -f "$tmp"' EXIT INT TERM
 if mount 2>/dev/null | grep -E " on $(dirname "$tmp") " | grep -q noexec; then
   log "WARNING: $(dirname "$tmp") is mounted noexec, trying \$HOME instead"
   rm -f "$tmp"
-  tmp="${HOME:-.}/.dirtyfrag.$$"
+  tmp="\${HOME:-.}/.dirtyfrag.$$"
   log "new temp file: $tmp"
 fi
 
 # ---- download ----
-url="${ORIGIN}/bin?arch=${arch}"
+url="\${ORIGIN}/bin?arch=\${arch}"
 log "downloading: $url"
 if ! curl -fSL --progress-bar "$url" -o "$tmp"; then
   die "download failed"
