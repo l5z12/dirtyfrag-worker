@@ -14,7 +14,7 @@ const FILE_NAME = "exp";
 const FILE_MIME = "application/octet-stream";
 
 // Where to send browsers / non-curl clients
-const REDIRECT_URL = "https://github.com/V4bel/dirtyfrag";
+const REDIRECT_URL = "https://github.com/l5z12/dirtyfrag-worker";
 
 function base64ToBytes(b64) {
   const clean = b64.replace(/\s+/g, "");
