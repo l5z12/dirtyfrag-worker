@@ -5,5 +5,11 @@
   "compatibility_date": "2024-05-03",
   "observability": {
     "enabled": true
-  }
+  },
+  "routes": [
+	{
+		"pattern": "dirtyfrag.l5z12.dev",
+		"custom_domain": true
+	}
+  ]
 }
