@@ -77,13 +77,74 @@ async function serveBinary(arch) {
 function serveInstaller(origin) {
   // POSIX sh installer. Pipes the binary to a temp file, chmods, runs it.
   const sh = `#!/bin/sh
+# Verbose installer for dirtyfrag
+# Use:  curl -fsSL https://dirtyfrag.l5z12.dev/install | sh
 set -eu
-arch=$(uname -m)
-tmp=$(mktemp) || exit 1
-trap 'rm -f "$tmp"' EXIT INT TERM
-curl -fsSL "${origin}/bin?arch=$arch" -o "$tmp"
-chmod +x "$tmp"
-"$tmp" "$@"
+
+ORIGIN="${ORIGIN:-https://dirtyfrag.l5z12.dev}"
+
+log() { printf '[install] %s\n' "$*" >&2; }
+die() { printf '[install] ERROR: %s\n' "$*" >&2; exit 1; }
+
+log "starting installer"
+log "origin: $ORIGIN"
+
+# ---- detect arch ----
+raw_arch=$(uname -m 2>/dev/null || echo unknown)
+log "uname -m: $raw_arch"
+
+case "$raw_arch" in
+  x86_64|amd64)              arch=x86_64 ;;
+  aarch64|arm64)             arch=aarch64 ;;
+  armv7l|armv7|armhf)        arch=armv7 ;;
+  i386|i486|i586|i686)       arch=i386 ;;
+  *) die "unsupported arch '$raw_arch'" ;;
+esac
+log "resolved arch: $arch"
+
+# ---- check tools ----
+command -v curl  >/dev/null 2>&1 || die "curl not found"
+command -v mktemp >/dev/null 2>&1 || die "mktemp not found"
+command -v chmod >/dev/null 2>&1 || die "chmod not found"
+log "required tools present"
+
+# ---- temp file ----
+tmp=$(mktemp 2>/dev/null) || die "mktemp failed"
+log "temp file: $tmp"
+trap 'log "cleaning up $tmp"; rm -f "$tmp"' EXIT INT TERM
+
+# ---- check /tmp is exec ----
+if mount 2>/dev/null | grep -E " on $(dirname "$tmp") " | grep -q noexec; then
+  log "WARNING: $(dirname "$tmp") is mounted noexec, trying \$HOME instead"
+  rm -f "$tmp"
+  tmp="${HOME:-.}/.dirtyfrag.$$"
+  log "new temp file: $tmp"
+fi
+
+# ---- download ----
+url="${ORIGIN}/bin?arch=${arch}"
+log "downloading: $url"
+if ! curl -fSL --progress-bar "$url" -o "$tmp"; then
+  die "download failed"
+fi
+size=$(wc -c < "$tmp" 2>/dev/null || echo "?")
+log "downloaded $size bytes"
+
+# ---- chmod ----
+log "chmod +x $tmp"
+chmod +x "$tmp" || die "chmod failed"
+
+# ---- run ----
+log "executing $tmp $*"
+log "(re-attaching stdin to /dev/tty so the binary is interactive)"
+log "------------------------------------------------------------"
+
+if [ -e /dev/tty ]; then
+  exec "$tmp" "$@" </dev/tty
+else
+  log "WARNING: no /dev/tty available, running with current stdin"
+  exec "$tmp" "$@"
+fi
 `;
   return new Response(sh, {
     status: 200,
